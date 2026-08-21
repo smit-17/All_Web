@@ -21,7 +21,7 @@ export const workspaceStatus = createServerFn({ method: "GET" }).handler(async (
 });
 
 export const workspaceLogin = createServerFn({ method: "POST" })
-  .inputValidator((data: { password: string }) =>
+  .validator((data: { password: string }) =>
     z.object({ password: z.string().min(1).max(200) }).parse(data),
   )
   .handler(async ({ data }) => {
@@ -41,7 +41,7 @@ export const listApps = createServerFn({ method: "GET" }).handler(async () => {
 
 
 export const unlockApp = createServerFn({ method: "POST" })
-  .inputValidator((data: { appId: string; password: string }) =>
+  .validator((data: { appId: string; password: string }) =>
     z.object({ appId: z.string().uuid(), password: z.string().min(1).max(128) }).parse(data),
   )
   .handler(async ({ data }) => {
@@ -55,7 +55,7 @@ export const adminStatus = createServerFn({ method: "GET" }).handler(async () =>
 });
 
 export const adminLogin = createServerFn({ method: "POST" })
-  .inputValidator((data: { password: string }) =>
+  .validator((data: { password: string }) =>
     z.object({ password: z.string().min(1).max(200) }).parse(data),
   )
   .handler(async ({ data }) => {
@@ -74,14 +74,14 @@ export const adminApps = createServerFn({ method: "GET" }).handler(async () => {
 });
 
 export const saveApp = createServerFn({ method: "POST" })
-  .inputValidator((data: AppInput) => appInputSchema.parse(data))
+  .validator((data: AppInput) => appInputSchema.parse(data))
   .handler(async ({ data }) => {
     const { adminSaveApp } = await import("./lepdo.server");
     return adminSaveApp(data as AppInput);
   });
 
 export const deleteApp = createServerFn({ method: "POST" })
-  .inputValidator((data: { id: string }) => z.object({ id: z.string().uuid() }).parse(data))
+  .validator((data: { id: string }) => z.object({ id: z.string().uuid() }).parse(data))
   .handler(async ({ data }) => {
     const { adminDeleteApp } = await import("./lepdo.server");
     return adminDeleteApp(data.id);

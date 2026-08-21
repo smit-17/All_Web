@@ -1,5 +1,8 @@
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { useSession } from "@tanstack/react-start/server";
+import { createClient } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
+
 
 export type PublicApp = {
   id: string;
@@ -34,9 +37,33 @@ export type AppInput = {
 type AdminSession = { isAdmin?: boolean };
 type WorkspaceSession = { unlocked?: boolean };
 
+function isProduction() {
+  return process.env["NODE_ENV"] === "production";
+}
+
+function getSessionSecret() {
+  const secret = process.env["SESSION_SECRET"];
+  if (secret) return secret;
+  if (isProduction()) throw new Error("SESSION_SECRET is required in production");
+  console.warn(
+    "[lepdo] SESSION_SECRET is not set; using a dev-only fallback. Set SESSION_SECRET for production.",
+  );
+  return "lepdo-local-dev-session-secret-32-characters";
+}
+
+function getAdminPassword() {
+  const password = process.env["ADMIN_PASSWORD"];
+  if (password) return password;
+  if (isProduction()) throw new Error("ADMIN_PASSWORD is required in production");
+  console.warn(
+    "[lepdo] ADMIN_PASSWORD is not set; using dev-only fallback 'admin'. Set ADMIN_PASSWORD for production.",
+  );
+  return "admin";
+}
+
 function sessionConfig() {
   return {
-    password: process.env["SESSION_SECRET"]!,
+    password: getSessionSecret(),
     name: "lepdo-admin",
     maxAge: 60 * 60 * 8,
     cookie: { httpOnly: true, secure: true, sameSite: "lax" as const, path: "/" },
@@ -45,12 +72,13 @@ function sessionConfig() {
 
 function workspaceSessionConfig() {
   return {
-    password: process.env["SESSION_SECRET"]!,
+    password: getSessionSecret(),
     name: "lepdo-workspace",
     maxAge: 60 * 60 * 24 * 7,
     cookie: { httpOnly: true, secure: true, sameSite: "lax" as const, path: "/" },
   };
 }
+
 
 export async function isWorkspaceUnlocked() {
   const session = await useSession<WorkspaceSession>(workspaceSessionConfig());
@@ -93,37 +121,67 @@ async function db() {
   return supabaseAdmin;
 }
 
-const PUBLIC_COLUMNS = "id, name, description, icon, category, accent, sort_order";
+function isNewSupabaseApiKey(value: string): boolean {
+  return value.startsWith("sb_publishable_") || value.startsWith("sb_secret_");
+}
+
+function publicDb() {
+  const url = process.env["SUPABASE_URL"];
+  const key = process.env["SUPABASE_PUBLISHABLE_KEY"];
+  if (!url || !key) {
+    throw new Error("SUPABASE_URL and SUPABASE_PUBLISHABLE_KEY are required");
+  }
+  return createClient<Database>(url, key, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+    global: {
+      fetch: (input, init) => {
+        const h = new Headers(init?.headers);
+        if (isNewSupabaseApiKey(key) && h.get("Authorization") === `Bearer ${key}`) {
+          h.delete("Authorization");
+        }
+        h.set("apikey", key);
+        return fetch(input, { ...init, headers: h });
+      },
+    },
+  });
+}
+
+const PUBLIC_COLUMNS = "id, name, description, icon, category, accent, sort_order, password_plain";
+
 
 export async function fetchPublicApps(): Promise<PublicApp[]> {
   if (!(await isWorkspaceUnlocked())) throw new Error("Workspace locked");
-  const supabase = await db();
-  const { data, error } = await supabase
-    .from("apps")
-    .select(`${PUBLIC_COLUMNS}, password_plain`)
+  const supabase = publicDb();
+  const { data, error } = await (supabase
+    .from("apps" as any)
+    .select(PUBLIC_COLUMNS)
     .eq("is_active", true)
-    .order("sort_order", { ascending: true });
+    .order("sort_order", { ascending: true }) as any);
   if (error) throw new Error(error.message);
-  return (data ?? []).map((row) => {
-    const { password_plain, ...rest } = row as Record<string, unknown> & { password_plain: string };
+  return (data ?? []).map((row: Record<string, unknown> & { password_plain: string }) => {
+    const { password_plain, ...rest } = row;
     return { ...(rest as Omit<PublicApp, "password">), password: password_plain };
   });
 }
 
+
 export async function unlock(appId: string, password: string) {
   if (!(await isWorkspaceUnlocked())) return { ok: false as const };
-  const supabase = await db();
-  const { data, error } = await supabase
-    .from("apps")
-    .select("id, url, password_salt, password_hash, is_active")
-    .eq("id", appId)
-    .maybeSingle();
+  const supabase = publicDb();
+  const { data, error } = await supabase.rpc("verify_app_password" as any, {
+    _app_id: appId,
+    _password: password,
+  });
   if (error) throw new Error(error.message);
-  if (!data || !data.is_active) return { ok: false as const };
-  const candidate = hashPassword(data.password_salt, password);
-  if (!safeEqual(candidate, data.password_hash)) return { ok: false as const };
-  return { ok: true as const, url: data.url };
+  const row = (data as { url: string; ok: boolean }[] | null)?.[0];
+  if (!row || !row.ok) return { ok: false as const };
+  return { ok: true as const, url: row.url };
 }
+
 
 
 export async function isAdmin() {
@@ -132,13 +190,13 @@ export async function isAdmin() {
 }
 
 export async function adminSignIn(password: string) {
-  const expected = process.env["ADMIN_PASSWORD"];
-  if (!expected) throw new Error("Admin password is not configured");
+  const expected = getAdminPassword();
   if (!safeEqual(password, expected)) return { ok: false as const };
   const session = await useSession<AdminSession>(sessionConfig());
   await session.update({ isAdmin: true });
   return { ok: true as const };
 }
+
 
 export async function adminSignOut() {
   const session = await useSession<AdminSession>(sessionConfig());

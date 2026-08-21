@@ -70,7 +70,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      verify_app_password: {
+        Args: { _app_id: string; _password: string }
+        Returns: {
+          ok: boolean
+          url: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
