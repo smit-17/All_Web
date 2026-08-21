@@ -1,0 +1,1 @@
+ALTER TABLE public.apps ADD COLUMN IF NOT EXISTS password_plain text NOT NULL DEFAULT 'lepdo123';
