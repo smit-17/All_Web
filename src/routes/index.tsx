@@ -3,7 +3,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient, queryOptions } from "@tanstack/react-query";
 import { Search, Star, Clock, Settings2, LayoutGrid, Lock } from "lucide-react";
 import { toast } from "sonner";
-import logo from "@/assets/lepdo-wordmark.png.asset.json";
+import logo from "@/assets/lepdoMain.png";
 import { listApps, unlockApp, workspaceStatus, workspaceLogin } from "@/lib/lepdo.functions";
 import { AppCard, type AppSummary } from "@/components/lepdo/AppCard";
 import { Input } from "@/components/ui/input";
@@ -110,7 +110,7 @@ function WorkspaceGate() {
   return (
     <div className="grid min-h-screen place-items-center bg-background px-5">
       <div className="surface-card animate-rise w-full max-w-sm rounded-3xl border border-border/70 p-7 text-center">
-        <img src={logo.url} alt="LEPDO" className="mx-auto h-14 w-auto object-contain" />
+        <img src={logo} alt="LEPDO" className="mx-auto h-14 w-auto object-contain" />
         <h1 className="mt-6 font-display text-xl font-semibold text-foreground">Workspace access</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Enter the workspace password to continue.
@@ -199,7 +199,7 @@ function Dashboard() {
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
             <div className="flex min-w-0 items-center gap-3">
               <img
-                src={logo.url}
+                src={logo}
                 alt="LEPDO logo"
                 className="h-9 w-auto shrink-0 rounded-lg bg-background/95 p-1 sm:h-10"
               />
