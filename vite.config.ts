@@ -6,10 +6,13 @@
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
+// On Vercel CI we need a Vercel-compatible server build instead of the default
+// Cloudflare Worker bundle. Everywhere else (Lovable sandbox / local) we leave
+// the default alone so preview builds keep working.
+const isVercel = !!process.env["VERCEL"];
+
 export default defineConfig({
-  // Outside the Lovable sandbox (e.g. Vercel CI) build a Vercel-compatible
-  // output instead of the default Cloudflare Worker bundle.
-  nitro: { preset: "vercel" },
+  ...(isVercel ? { nitro: { preset: "vercel" as const } } : {}),
   tanstackStart: {
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
