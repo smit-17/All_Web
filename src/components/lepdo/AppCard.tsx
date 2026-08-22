@@ -11,6 +11,7 @@ export type AppSummary = {
   category: string;
   accent: string;
   password: string;
+  admin_password: string;
 };
 
 
@@ -20,12 +21,14 @@ export function AppCard({
   isFavorite,
   onToggleFavorite,
   onOpen,
+  revealedAdminPassword,
 }: {
   app: AppSummary;
   index: number;
   isFavorite: boolean;
   onToggleFavorite: (id: string) => void;
   onOpen: (app: AppSummary) => void;
+  revealedAdminPassword?: string | undefined;
 }) {
   return (
     <article
@@ -62,9 +65,19 @@ export function AppCard({
       <p className="line-clamp-2 text-sm text-muted-foreground">{app.description}</p>
 
       <div className="mt-auto flex items-center justify-between gap-3 pt-1">
-        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-          Pass: <span className="font-semibold text-foreground">{app.password}</span>
-        </span>
+        <div className="min-w-0 text-xs font-medium text-muted-foreground">
+          <p className="truncate">
+            Pass: <span className="font-semibold text-foreground">{app.password}</span>
+          </p>
+          {app.admin_password ? (
+            <p className="truncate">
+              Admin Pass:{" "}
+              <span className="font-semibold text-foreground">
+                {revealedAdminPassword ?? "****"}
+              </span>
+            </p>
+          ) : null}
+        </div>
         <Button size="sm" variant="gold" onClick={() => onOpen(app)}>
           Open <ArrowUpRight className="size-4" />
         </Button>

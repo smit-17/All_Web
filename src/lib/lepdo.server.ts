@@ -13,12 +13,14 @@ export type PublicApp = {
   accent: string;
   sort_order: number;
   password: string;
+  admin_password: string;
 };
 
 export type AdminApp = Omit<PublicApp, "password"> & {
   url: string;
   is_active: boolean;
   password: string;
+  admin_password: string;
 };
 
 export type AppInput = {
@@ -32,6 +34,7 @@ export type AppInput = {
   sort_order: number;
   is_active: boolean;
   password?: string;
+  admin_password?: string;
 };
 
 type AdminSession = { isAdmin?: boolean; key?: string };
@@ -135,8 +138,33 @@ function publicDb() {
   });
 }
 
-const PUBLIC_COLUMNS = "id, name, description, icon, category, accent, sort_order, password_plain";
+const PUBLIC_COLUMNS = "id, name, description, icon, category, accent, sort_order, password_plain, admin_password_plain";
 
+
+function getRevealPassword() {
+  return (
+    process.env["ADMIN_REVEAL_PASSWORD"] ??
+    process.env["ADMIN_PASSWORD"] ??
+    "lepdo-admin"
+  );
+}
+
+/** Verifies the reveal password (server-side only) and returns per-app admin passwords. */
+export async function revealAdminPasswords(password: string) {
+  if (!(await isWorkspaceUnlocked())) return { ok: false as const };
+  if (!safeEqual(password, getRevealPassword())) return { ok: false as const };
+  const supabase = publicDb();
+  const { data, error } = await (supabase
+    .from("apps" as any)
+    .select("id, admin_password_plain")
+    .eq("is_active", true) as any);
+  if (error) throw new Error(error.message);
+  const passwords: Record<string, string> = {};
+  for (const row of (data ?? []) as { id: string; admin_password_plain: string | null }[]) {
+    passwords[row.id] = row.admin_password_plain ?? "";
+  }
+  return { ok: true as const, passwords };
+}
 
 export async function fetchPublicApps(): Promise<PublicApp[]> {
   if (!(await isWorkspaceUnlocked())) throw new Error("Workspace locked");
@@ -147,10 +175,17 @@ export async function fetchPublicApps(): Promise<PublicApp[]> {
     .eq("is_active", true)
     .order("sort_order", { ascending: true }) as any);
   if (error) throw new Error(error.message);
-  return (data ?? []).map((row: Record<string, unknown> & { password_plain: string }) => {
-    const { password_plain, ...rest } = row;
-    return { ...(rest as Omit<PublicApp, "password">), password: password_plain };
-  });
+  return (data ?? []).map(
+    (row: Record<string, unknown> & { password_plain: string; admin_password_plain: string }) => {
+      const { password_plain, admin_password_plain, ...rest } = row;
+      return {
+        ...(rest as Omit<PublicApp, "password" | "admin_password">),
+        password: password_plain,
+        // never sent to the client until the reveal password is verified
+        admin_password: admin_password_plain ? "****" : "",
+      };
+    },
+  );
 }
 
 
@@ -219,8 +254,15 @@ export async function adminFetchApps(): Promise<AdminApp[]> {
   });
   if (error) throw new Error(error.message);
   return ((data as any[]) ?? []).map((row) => {
-    const { password_plain, ...rest } = row as Record<string, unknown> & { password_plain: string };
-    return { ...(rest as Omit<AdminApp, "password">), password: password_plain };
+    const { password_plain, admin_password_plain, ...rest } = row as Record<string, unknown> & {
+      password_plain: string;
+      admin_password_plain: string;
+    };
+    return {
+      ...(rest as Omit<AdminApp, "password" | "admin_password">),
+      password: password_plain,
+      admin_password: admin_password_plain ?? "",
+    };
   });
 }
 
@@ -242,6 +284,7 @@ export async function adminSaveApp(input: AppInput) {
     _sort_order: input.sort_order,
     _is_active: input.is_active,
     _password: input.password ?? null,
+    _app_admin_password: input.admin_password ?? null,
   });
   if (error) throw new Error(error.message);
   return { ok: true as const };

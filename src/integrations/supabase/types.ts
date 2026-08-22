@@ -32,6 +32,7 @@ export type Database = {
       apps: {
         Row: {
           accent: string
+          admin_password_plain: string
           category: string
           created_at: string
           description: string
@@ -48,6 +49,7 @@ export type Database = {
         }
         Insert: {
           accent?: string
+          admin_password_plain?: string
           category?: string
           created_at?: string
           description?: string
@@ -64,6 +66,7 @@ export type Database = {
         }
         Update: {
           accent?: string
+          admin_password_plain?: string
           category?: string
           created_at?: string
           description?: string
@@ -98,6 +101,7 @@ export type Database = {
         Args: { _admin_password: string }
         Returns: {
           accent: string
+          admin_password_plain: string
           category: string
           description: string
           icon: string
@@ -110,22 +114,40 @@ export type Database = {
         }[]
       }
       admin_login: { Args: { _password: string }; Returns: boolean }
-      admin_upsert_app: {
-        Args: {
-          _accent: string
-          _admin_password: string
-          _category: string
-          _description: string
-          _icon: string
-          _id: string
-          _is_active: boolean
-          _name: string
-          _password: string
-          _sort_order: number
-          _url: string
-        }
-        Returns: string
-      }
+      admin_upsert_app:
+        | {
+            Args: {
+              _accent: string
+              _admin_password: string
+              _category: string
+              _description: string
+              _icon: string
+              _id: string
+              _is_active: boolean
+              _name: string
+              _password: string
+              _sort_order: number
+              _url: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              _accent: string
+              _admin_password: string
+              _app_admin_password?: string
+              _category: string
+              _description: string
+              _icon: string
+              _id: string
+              _is_active: boolean
+              _name: string
+              _password: string
+              _sort_order: number
+              _url: string
+            }
+            Returns: string
+          }
       verify_app_password: {
         Args: { _app_id: string; _password: string }
         Returns: {

@@ -1,10 +1,24 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient, queryOptions } from "@tanstack/react-query";
-import { Search, Star, Clock, Settings2, LayoutGrid, Lock } from "lucide-react";
+import { Search, Star, Clock, Settings2, LayoutGrid, Lock, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import logo from "@/assets/lepdoMain.png";
-import { listApps, unlockApp, workspaceStatus, workspaceLogin } from "@/lib/lepdo.functions";
+import {
+  listApps,
+  unlockApp,
+  workspaceStatus,
+  workspaceLogin,
+  revealAdminPasswords,
+} from "@/lib/lepdo.functions";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { AppCard, type AppSummary } from "@/components/lepdo/AppCard";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -140,6 +154,31 @@ function Dashboard() {
   const [category, setCategory] = useState("All");
   const [favorites, setFavorites] = useLocalList(FAV_KEY);
   const [recent, setRecent] = useLocalList(RECENT_KEY);
+  const [revealed, setRevealed] = useState<Record<string, string> | null>(null);
+  const [revealOpen, setRevealOpen] = useState(false);
+  const [revealPassword, setRevealPassword] = useState("");
+  const [revealError, setRevealError] = useState("");
+  const [revealBusy, setRevealBusy] = useState(false);
+
+  async function submitReveal(e: React.FormEvent) {
+    e.preventDefault();
+    setRevealBusy(true);
+    setRevealError("");
+    try {
+      const res = await revealAdminPasswords({ data: { password: revealPassword } });
+      if (!res.ok) {
+        setRevealError("Incorrect password");
+        return;
+      }
+      setRevealed(res.passwords);
+      setRevealOpen(false);
+      setRevealPassword("");
+    } catch {
+      setRevealError("Incorrect password");
+    } finally {
+      setRevealBusy(false);
+    }
+  }
 
   const categories = useMemo(
     () => ["All", "Favorites", ...Array.from(new Set(apps.map((a) => a.category))).sort()],
@@ -212,12 +251,24 @@ function Dashboard() {
                 </p>
               </div>
             </div>
-            <Link
-              to="/admin"
-              className="inline-flex shrink-0 items-center gap-2 rounded-full border border-primary-foreground/25 px-3 py-2 text-xs font-medium transition-colors hover:bg-primary-foreground/10 sm:text-sm"
-            >
-              <Settings2 className="size-4" /> <span className="hidden sm:inline">Admin</span>
-            </Link>
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                type="button"
+                onClick={() => (revealed ? setRevealed(null) : setRevealOpen(true))}
+                className="inline-flex shrink-0 items-center gap-2 rounded-full border border-primary-foreground/25 px-3 py-2 text-xs font-medium transition-colors hover:bg-primary-foreground/10 sm:text-sm"
+              >
+                {revealed ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                <span className="hidden sm:inline">
+                  {revealed ? "Hide Admin Passwords" : "Show Admin Password"}
+                </span>
+              </button>
+              <Link
+                to="/admin"
+                className="inline-flex shrink-0 items-center gap-2 rounded-full border border-primary-foreground/25 px-3 py-2 text-xs font-medium transition-colors hover:bg-primary-foreground/10 sm:text-sm"
+              >
+                <Settings2 className="size-4" /> <span className="hidden sm:inline">Admin</span>
+              </Link>
+            </div>
           </div>
 
           <div className="relative mt-6">
@@ -297,12 +348,50 @@ function Dashboard() {
                   isFavorite={favorites.includes(app.id)}
                   onToggleFavorite={toggleFavorite}
                   onOpen={openApp}
+                  revealedAdminPassword={revealed?.[app.id]}
                 />
               ))}
             </div>
           )}
         </section>
       </main>
+
+      <Dialog open={revealOpen} onOpenChange={setRevealOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Show admin passwords</DialogTitle>
+            <DialogDescription>
+              Enter the master reveal password to display admin passwords on all cards.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={submitReveal} className="space-y-3">
+            <Input
+              type="password"
+              value={revealPassword}
+              onChange={(e) => setRevealPassword(e.target.value)}
+              placeholder="Password"
+              aria-label="Reveal password"
+              autoFocus
+              className="h-11 rounded-2xl"
+            />
+            {revealError ? (
+              <p className="text-sm font-medium text-destructive" role="alert">
+                {revealError}
+              </p>
+            ) : null}
+            <DialogFooter>
+              <Button
+                type="submit"
+                variant="navy"
+                className="w-full"
+                disabled={revealBusy || !revealPassword}
+              >
+                Reveal
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

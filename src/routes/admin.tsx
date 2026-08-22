@@ -53,6 +53,7 @@ type Draft = {
   sort_order: number;
   is_active: boolean;
   password: string;
+  admin_password: string;
 };
 
 const emptyDraft: Draft = {
@@ -65,6 +66,7 @@ const emptyDraft: Draft = {
   sort_order: 0,
   is_active: true,
   password: "",
+  admin_password: "",
 };
 
 function AdminPage() {
@@ -164,6 +166,7 @@ function AdminConsole({ onSignedOut }: { onSignedOut: () => void }) {
           sort_order: Number(d.sort_order) || 0,
           is_active: d.is_active,
           ...(d.password ? { password: d.password } : {}),
+          admin_password: d.admin_password,
         },
       }),
     onSuccess: () => {
@@ -311,6 +314,16 @@ function AdminConsole({ onSignedOut }: { onSignedOut: () => void }) {
                   onChange={(e) => setDraft({ ...draft, password: e.target.value })}
                 />
               </div>
+              <div className="space-y-1.5">
+                <Label>Admin password</Label>
+                <Input
+                  type="text"
+                  maxLength={128}
+                  value={draft.admin_password}
+                  placeholder="Admin password for this application"
+                  onChange={(e) => setDraft({ ...draft, admin_password: e.target.value })}
+                />
+              </div>
               <div className="flex items-center gap-3 sm:col-span-2">
                 <Switch
                   checked={draft.is_active}
@@ -357,13 +370,18 @@ function AdminConsole({ onSignedOut }: { onSignedOut: () => void }) {
                     </p>
                     <p className="truncate text-xs text-muted-foreground">{app.url}</p>
                     <p className="truncate text-xs font-medium text-foreground">Pass: {app.password}</p>
+                    {app.admin_password ? (
+                      <p className="truncate text-xs font-medium text-foreground">
+                        Admin Pass: {app.admin_password}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
                 <div className="flex shrink-0 gap-1">
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => setDraft({ ...app, password: app.password ?? "" })}
+                    onClick={() => setDraft({ ...app, password: app.password ?? "", admin_password: app.admin_password ?? "" })}
                   >
                     Edit
                   </Button>

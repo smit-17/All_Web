@@ -13,6 +13,7 @@ const appInputSchema = z.object({
   sort_order: z.number().int().min(0).max(999),
   is_active: z.boolean(),
   password: z.string().min(4).max(128).optional(),
+  admin_password: z.string().max(128).optional(),
 });
 
 export const workspaceStatus = createServerFn({ method: "GET" }).handler(async () => {
@@ -47,6 +48,15 @@ export const unlockApp = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { unlock } = await import("./lepdo.server");
     return unlock(data.appId, data.password);
+  });
+
+export const revealAdminPasswords = createServerFn({ method: "POST" })
+  .validator((data: { password: string }) =>
+    z.object({ password: z.string().min(1).max(200) }).parse(data),
+  )
+  .handler(async ({ data }) => {
+    const { revealAdminPasswords: reveal } = await import("./lepdo.server");
+    return reveal(data.password);
   });
 
 export const adminStatus = createServerFn({ method: "GET" }).handler(async () => {
