@@ -34,7 +34,7 @@ export type AppInput = {
   password?: string;
 };
 
-type AdminSession = { isAdmin?: boolean };
+type AdminSession = { isAdmin?: boolean; key?: string };
 type WorkspaceSession = { unlocked?: boolean };
 
 function isProduction() {
@@ -49,16 +49,6 @@ function getSessionSecret() {
     "[lepdo] SESSION_SECRET is not set; using a dev-only fallback. Set SESSION_SECRET for production.",
   );
   return "lepdo-local-dev-session-secret-32-characters";
-}
-
-function getAdminPassword() {
-  const password = process.env["ADMIN_PASSWORD"];
-  if (password) return password;
-  if (isProduction()) throw new Error("ADMIN_PASSWORD is required in production");
-  console.warn(
-    "[lepdo] ADMIN_PASSWORD is not set; using dev-only fallback 'admin'. Set ADMIN_PASSWORD for production.",
-  );
-  return "admin";
 }
 
 function sessionConfig() {
@@ -114,11 +104,6 @@ export function safeEqual(a: string, b: string) {
 
 export function newSalt() {
   return randomUUID();
-}
-
-async function db() {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  return supabaseAdmin;
 }
 
 function isNewSupabaseApiKey(value: string): boolean {
@@ -190,10 +175,12 @@ export async function isAdmin() {
 }
 
 export async function adminSignIn(password: string) {
-  const expected = getAdminPassword();
-  if (!safeEqual(password, expected)) return { ok: false as const };
+  const supabase = publicDb();
+  const { data, error } = await supabase.rpc("admin_login" as any, { _password: password });
+  if (error) throw new Error(error.message);
+  if (data !== true) return { ok: false as const };
   const session = await useSession<AdminSession>(sessionConfig());
-  await session.update({ isAdmin: true });
+  await session.update({ isAdmin: true, key: password });
   return { ok: true as const };
 }
 
@@ -205,71 +192,56 @@ export async function adminSignOut() {
 }
 
 async function requireAdmin() {
-  if (!(await isAdmin())) throw new Error("Not authorized");
+  const session = await useSession<AdminSession>(sessionConfig());
+  if (session.data.isAdmin !== true || !session.data.key) throw new Error("Not authorized");
+  return session.data.key;
 }
 
+
 export async function adminFetchApps(): Promise<AdminApp[]> {
-  await requireAdmin();
-  const supabase = await db();
-  const { data, error } = await supabase
-    .from("apps")
-    .select(`${PUBLIC_COLUMNS}, url, is_active, password_plain`)
-    .order("sort_order", { ascending: true });
+  const adminKey = await requireAdmin();
+  const supabase = publicDb();
+  const { data, error } = await supabase.rpc("admin_list_apps" as any, {
+    _admin_password: adminKey,
+  });
   if (error) throw new Error(error.message);
-  return (data ?? []).map((row) => {
+  return ((data as any[]) ?? []).map((row) => {
     const { password_plain, ...rest } = row as Record<string, unknown> & { password_plain: string };
     return { ...(rest as Omit<AdminApp, "password">), password: password_plain };
   });
 }
 
 export async function adminSaveApp(input: AppInput) {
-  await requireAdmin();
-  const supabase = await db();
-  const base = {
-    name: input.name,
-    description: input.description,
-    url: input.url,
-    icon: input.icon,
-    category: input.category,
-    accent: input.accent,
-    sort_order: input.sort_order,
-    is_active: input.is_active,
-  };
-
-  if (input.id) {
-    let patch = { ...base };
-    if (input.password && input.password.length > 0) {
-      const salt = newSalt();
-      patch = {
-        ...patch,
-        password_salt: salt,
-        password_hash: hashPassword(salt, input.password),
-        password_plain: input.password,
-      } as typeof patch;
-    }
-    const { error } = await supabase.from("apps").update(patch).eq("id", input.id);
-
-    if (error) throw new Error(error.message);
-    return { ok: true as const };
+  const adminKey = await requireAdmin();
+  if (!input.id && !input.password) {
+    throw new Error("A password is required for a new application");
   }
-
-  if (!input.password) throw new Error("A password is required for a new application");
-  const salt = newSalt();
-  const { error } = await supabase.from("apps").insert({
-    ...base,
-    password_salt: salt,
-    password_hash: hashPassword(salt, input.password),
-    password_plain: input.password,
+  const supabase = publicDb();
+  const { error } = await supabase.rpc("admin_upsert_app" as any, {
+    _admin_password: adminKey,
+    _id: input.id ?? null,
+    _name: input.name,
+    _description: input.description,
+    _url: input.url,
+    _icon: input.icon,
+    _category: input.category,
+    _accent: input.accent,
+    _sort_order: input.sort_order,
+    _is_active: input.is_active,
+    _password: input.password ?? null,
   });
-
   if (error) throw new Error(error.message);
   return { ok: true as const };
 }
 
 export async function adminDeleteApp(id: string) {
-  await requireAdmin();
-  const supabase = await db();
-  const { error } = await supabase.from("apps").delete().eq("id", id);
+  const adminKey = await requireAdmin();
+  const supabase = publicDb();
+  const { error } = await supabase.rpc("admin_delete_app" as any, {
+    _admin_password: adminKey,
+    _id: id,
+  });
   if (error) throw new Error(error.message);
   return { ok: true as const };
 }
+

@@ -14,6 +14,21 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_config: {
+        Row: {
+          id: boolean
+          password: string
+        }
+        Insert: {
+          id?: boolean
+          password: string
+        }
+        Update: {
+          id?: boolean
+          password?: string
+        }
+        Relationships: []
+      }
       apps: {
         Row: {
           accent: string
@@ -70,6 +85,43 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_check: { Args: { _admin_password: string }; Returns: boolean }
+      admin_delete_app: {
+        Args: { _admin_password: string; _id: string }
+        Returns: boolean
+      }
+      admin_list_apps: {
+        Args: { _admin_password: string }
+        Returns: {
+          accent: string
+          category: string
+          description: string
+          icon: string
+          id: string
+          is_active: boolean
+          name: string
+          password_plain: string
+          sort_order: number
+          url: string
+        }[]
+      }
+      admin_login: { Args: { _password: string }; Returns: boolean }
+      admin_upsert_app: {
+        Args: {
+          _accent: string
+          _admin_password: string
+          _category: string
+          _description: string
+          _icon: string
+          _id: string
+          _is_active: boolean
+          _name: string
+          _password: string
+          _sort_order: number
+          _url: string
+        }
+        Returns: string
+      }
       verify_app_password: {
         Args: { _app_id: string; _password: string }
         Returns: {
