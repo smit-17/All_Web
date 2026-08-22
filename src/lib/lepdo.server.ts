@@ -171,7 +171,7 @@ export async function unlock(appId: string, password: string) {
 
 export async function isAdmin() {
   const session = await useSession<AdminSession>(sessionConfig());
-  return session.data.isAdmin === true;
+  return session.data.isAdmin === true && typeof session.data.key === "string" && session.data.key.length > 0;
 }
 
 export async function adminSignIn(password: string) {
