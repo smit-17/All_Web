@@ -191,6 +191,19 @@ export async function adminSignOut() {
   return { ok: true as const };
 }
 
+export async function adminChangePassword(newPassword: string) {
+  const adminKey = await requireAdmin();
+  const supabase = publicDb();
+  const { error } = await supabase.rpc("admin_change_password" as any, {
+    _admin_password: adminKey,
+    _new_password: newPassword,
+  });
+  if (error) throw new Error(error.message);
+  const session = await useSession<AdminSession>(sessionConfig());
+  await session.update({ isAdmin: true, key: newPassword });
+  return { ok: true as const };
+}
+
 async function requireAdmin() {
   const session = await useSession<AdminSession>(sessionConfig());
   if (session.data.isAdmin !== true || !session.data.key) throw new Error("Not authorized");

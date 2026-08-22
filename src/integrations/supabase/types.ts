@@ -85,6 +85,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_change_password: {
+        Args: { _admin_password: string; _new_password: string }
+        Returns: boolean
+      }
       admin_check: { Args: { _admin_password: string }; Returns: boolean }
       admin_delete_app: {
         Args: { _admin_password: string; _id: string }

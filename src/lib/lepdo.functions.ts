@@ -68,6 +68,16 @@ export const adminLogout = createServerFn({ method: "POST" }).handler(async () =
   return adminSignOut();
 });
 
+export const adminChangePassword = createServerFn({ method: "POST" })
+  .validator((data: { newPassword: string }) =>
+    z.object({ newPassword: z.string().min(4).max(200) }).parse(data),
+  )
+  .handler(async ({ data }) => {
+    const { adminChangePassword: change } = await import("./lepdo.server");
+    return change(data.newPassword);
+  });
+
+
 export const adminApps = createServerFn({ method: "GET" }).handler(async () => {
   const { adminFetchApps } = await import("./lepdo.server");
   return adminFetchApps();

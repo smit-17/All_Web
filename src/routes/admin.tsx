@@ -6,6 +6,7 @@ import { ArrowLeft, Loader2, LogOut, Plus, Save, ShieldCheck, Trash2 } from "luc
 import { toast } from "sonner";
 import {
   adminApps,
+  adminChangePassword,
   adminLogin,
   adminLogout,
   adminStatus,
@@ -211,6 +212,9 @@ function AdminConsole({ onSignedOut }: { onSignedOut: () => void }) {
           <Plus className="size-4" /> Add application
         </Button>
 
+        <ChangePasswordCard />
+
+
         {draft && (
           <form
             onSubmit={(e) => {
@@ -378,5 +382,50 @@ function AdminConsole({ onSignedOut }: { onSignedOut: () => void }) {
         )}
       </main>
     </div>
+  );
+}
+
+function ChangePasswordCard() {
+  const change = useServerFn(adminChangePassword);
+  const [next, setNext] = useState("");
+  const [pending, setPending] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setPending(true);
+    try {
+      await change({ data: { newPassword: next } });
+      toast.success("Admin password updated");
+      setNext("");
+    } catch (err) {
+      toast.error((err as Error).message || "Could not update password");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <form
+      onSubmit={submit}
+      className="surface-card flex flex-wrap items-end gap-3 rounded-3xl border border-border/70 p-5"
+    >
+      <div className="min-w-0 flex-1 space-y-1.5">
+        <Label>Admin master password</Label>
+        <Input
+          type="text"
+          minLength={4}
+          maxLength={200}
+          value={next}
+          placeholder="New master password"
+          onChange={(e) => setNext(e.target.value)}
+        />
+        <p className="text-xs text-muted-foreground">
+          Stored in the database, not in .env — changing it here applies everywhere instantly.
+        </p>
+      </div>
+      <Button type="submit" variant="outline" disabled={pending || next.length < 4}>
+        {pending ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />} Update
+      </Button>
+    </form>
   );
 }
