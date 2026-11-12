@@ -24,5 +24,6 @@ export const ICON_OPTIONS = [
   "Wrench",
   "Mail",
   "FileText",
+  "StickyNote",
   "AppWindow",
 ];
