@@ -1,5 +1,5 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, type ErrorComponentProps } from "@tanstack/react-router";
 import { useSuspenseQuery, useQueryClient, queryOptions } from "@tanstack/react-query";
 import { Search, Star, Clock, Settings2, LayoutGrid, Lock, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
@@ -53,9 +53,9 @@ export const Route = createFileRoute("/")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
-  errorComponent: ({ error }) => (
+  errorComponent: ({ error }: ErrorComponentProps) => (
     <div className="p-10 text-center text-sm text-destructive" role="alert">
-      {error.message}
+      {error instanceof Error ? error.message : String(error)}
     </div>
   ),
   notFoundComponent: () => <div className="p-10 text-center">Nothing here.</div>,
